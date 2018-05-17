@@ -3,7 +3,9 @@ XML Parser for converting from GATE's char-indexed annotations to sentence-word-
 
 # Example Usage
 ## Load Parser
-` from gateparser.parser import GateBIOParser`
+```python
+from gateparser.parser import GateBIOParser
+```
 
 ## Specify XML File, Encoding, and Structure
 ```python
