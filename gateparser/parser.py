@@ -104,7 +104,6 @@ class GateBIOParser(object):
 
         entity_indices, ws = self._process_char_indices_to_words()
 
-        print(ws)
         sentences, sentence_words, sentence_end_chars = self._tokenize_sentences()
         sl_wx = self._char_idxs_to_sentence_idx(entity_indices, sentence_end_chars)
 
@@ -170,7 +169,6 @@ class GateBIOParser(object):
 
     def print_class_counts(self):
         class_counts = self.get_class_counts()
-        print('Update sample_counts.yaml with this data')
         print('Sample Counts')
         for tag in class_counts:
             print(tag, ':', class_counts[tag])
