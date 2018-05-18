@@ -1,26 +1,32 @@
+
 import os
 from collections import defaultdict, Counter
 
 from xmltodict import parse
 from nltk.tokenize import sent_tokenize, word_tokenize
 from glom import glom
-
+import warnings
 
 class GateBIOParser(object):
-    def __init__(self, filename, encoding='windows-1252',
+    def __init__(self, filename, language='english',
+                                 encoding='windows-1252',
                                  annotation_spec='GateDocument.AnnotationSet',
                                  node_spec='GateDocument.TextWithNodes',
                                  text_spec='GateDocument.TextWithNodes'):
         self.filename = filename
         self._encoding = encoding
         self._annotation_spec = annotation_spec
+        self.language = language
         self._node_spec = node_spec
         self._text_spec = text_spec
         self.annotations, self.nodes, self.text = self.load_xml()
         self.BIO = self._tag_bio()
         self.labels = self.labels()
 
+
     def labels(self):
+        if self.BIO is None:
+            return None
         return [sentence['labels'] for sentence in self.BIO]
 
     def load_xml(self):
@@ -44,18 +50,19 @@ class GateBIOParser(object):
 
             nodes = glom(annotations, self._node_spec)
 
-            if nodes is not None:
+            if annos is not None and nodes is not None:
                 nodes = nodes['Node']
 
             if annos is not None and nodes is not None:
                 text = glom(annotations, self._text_spec)['#text']
             else:
-                raise ValueError('No Text to Annotate')
+                warnings.warn(f'No Text to Annotate in {self.filename}')
+                text = None
 
         return annos, nodes, text
 
-    def _tokenize_sentences(self, language='english'):
-        sentences = sent_tokenize(self.text, language=language)
+    def _tokenize_sentences(self):
+        sentences = sent_tokenize(self.text, language=self.language)
 
         # Where you would call NP_Chunks from spacy
         # print(sentences)
@@ -143,6 +150,10 @@ class GateBIOParser(object):
             tokens = sentence_words[sent_idx]
             annotations = ['O'] * len(tokens)
             for (word_idx, label) in labels:
+                if label == 'UserIDWindows':
+                    label = 'UserIDGeneric'
+                elif label == 'LastName':
+                    label = 'FullName'
                 if isinstance(word_idx, tuple):
                     start, end = word_idx
                     for i in range(start, end):
