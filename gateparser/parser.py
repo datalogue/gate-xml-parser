@@ -1,4 +1,3 @@
-
 import os
 from collections import defaultdict, Counter
 
@@ -6,6 +5,9 @@ from xmltodict import parse
 from nltk.tokenize import sent_tokenize, word_tokenize
 from glom import glom
 import warnings
+
+
+NUMBERS = '0123456789'
 
 class GateBIOParser(object):
     def __init__(self, filename, language='english',
@@ -151,19 +153,29 @@ class GateBIOParser(object):
             annotations = ['O'] * len(tokens)
             for (word_idx, label) in labels:
                 if label == 'UserIDWindows':
+                    if '.' in tokens[word_idx]:
+                        tokens[word_idx] = tokens[word_idx].split('.')[0]
                     label = 'UserIDGeneric'
-                elif label == 'LastName':
+                elif label in ('LastName', 'FirstName'):
                     label = 'FullName'
+                elif label in ('Email'):
+                    continue
                 if isinstance(word_idx, tuple):
                     start, end = word_idx
                     for i in range(start, end):
-                        if i == start:
+                        if i == start and label not in ('UserIDGeneric', 'Organisation'):
                             annotations[i] = 'B-' + label
                         else:
                             annotations[i] = 'I-' + label
                 else:
-                    # print(sentence_words[sent_idx][word_idx], label)
                     annotations[word_idx] = 'I-' + label
+
+            assert len(tokens) == len(annotations)
+            tokens_to_keep = [idx for idx, token in enumerate(tokens) if annotations[idx] == 'O' or (len(token) > 2 and not all(t in NUMBERS for t in token))]
+            tokens = [tokens[i] for i in tokens_to_keep]
+            annotations = [annotations[i] for i in tokens_to_keep]
+
+
             outputs.append({'tokens': tokens, 'labels': annotations})
 
         return outputs
