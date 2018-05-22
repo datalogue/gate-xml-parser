@@ -6,7 +6,6 @@ from nltk.tokenize import sent_tokenize, word_tokenize
 from glom import glom
 import warnings
 
-from pprint import pprint
 from json import JSONDecodeError
 
 from googletrans import Translator
@@ -82,21 +81,17 @@ class GateBIOParser(object):
             else:
                 warnings.warn(f'No Text to Annotate in {self.filename}')
                 text = None
-            pprint(annos)
-            pprint(nodes)
-            pprint(text)
+
 
         return annos, nodes, text
 
     def _tokenize_sentences(self):
         sentences = sent_tokenize(self.text, language=self.language)
-        pprint(sentences[2])
 
         # Where you would call NP_Chunks from spacy
         # print(sentences)
 
         sentence_words = [word_tokenize(s) for s in sentences]
-        pprint(sentence_words[2])
         # get sentence end indices
         sentence_end_chars = []
         current_char_count = 0
@@ -152,7 +147,6 @@ class GateBIOParser(object):
         for i,j in entity_indices:
             sentence_to_ws[sl_wx[(i,j)]].append(text[int(i)-1:int(j)-1].strip())
 
-        pprint(sentence_to_ws[2])
         sentence_labels = {}
         for sentence_idx, word_indices in target_word_per_sentence.items():
             labels = []
