@@ -105,7 +105,6 @@ class GateBIOParser(object):
         doc = nlp(text, disable=['ner'])
 
         tokens, labels = [str(t) for t in list(doc)], ['O'] * len(doc)
-        print(tokens)
         token_char_starts = [str(doc[i:i+1].start_char) for i in range(len(tokens))]
         token_char_ends = [str(doc[i:i+1].end_char - 1) for i in range(len(tokens))]
 
