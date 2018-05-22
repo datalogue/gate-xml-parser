@@ -8,12 +8,6 @@ import warnings
 
 from json import JSONDecodeError
 
-from googletrans import Translator
-import langid
-
-langid.set_languages(['de','fr','en', 'es'])
-
-
 
 
 class GateBIOParser(object):
@@ -32,9 +26,6 @@ class GateBIOParser(object):
         self.BIO = self._tag_bio()
         self.labels = self.labels()
 
-
-    def translate(self, words, dest='en'):
-        return self.translator.translate(words, dest=dest).text
 
     def labels(self):
         if self.BIO is None:
@@ -67,14 +58,6 @@ class GateBIOParser(object):
 
             if annos is not None and nodes is not None:
                 text = glom(annotations, self._text_spec)['#text']
-                #lang, score = langid.classify(text)
-                #if lang != 'en':
-                #    try:
-                #        text = self.translate(text)
-                #    except JSONDecodeError as e:
-                #        print('Could not translate')
-                #        text = text
-
 
 
             else:
