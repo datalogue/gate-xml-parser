@@ -2,11 +2,15 @@ import os
 from collections import defaultdict, Counter
 
 from xmltodict import parse
-from nltk.tokenize import sent_tokenize, word_tokenize
+
+import spacy
 from glom import glom
 import warnings
 
 from json import JSONDecodeError
+from spacy.tokenizer import Tokenizer
+
+nlp = spacy.load('en')
 
 
 
@@ -24,25 +28,22 @@ class GateBIOParser(object):
         self._text_spec = text_spec
         self.annotations, self.nodes, self.text = self.load_xml()
         self.BIO = self._tag_bio()
-        self.labels = self.labels()
 
 
-    def labels(self):
-        if self.BIO is None:
-            return None
-        return [sentence['labels'] for sentence in self.BIO]
 
     def load_xml(self):
         if not '.xml' in self.filename:
             raise ValueError('File must be XML (exported from GATE)')
 
         with open(self.filename, 'rt', encoding=self._encoding) as xml:
-            annotations = parse(xml.read())
+            annotations = parse(xml.read(), strip_whitespace=False)
             parsed_annos = glom(annotations, self._annotation_spec)
 
             if parsed_annos is not None:
                 if isinstance(parsed_annos, list):
                     annos = parsed_annos[0]['Annotation']
+                elif isinstance(parsed_annos, str) and not bool(parsed_annos.strip()):
+                    annos = parsed_annos = None
                 else:
                     annos = parsed_annos['Annotation']
             else:
@@ -61,45 +62,12 @@ class GateBIOParser(object):
 
 
             else:
-                warnings.warn(f'No Text to Annotate in {self.filename}')
+                # warnings.warn(f'No Text to Annotate in {self.filename}')
                 text = None
 
 
         return annos, nodes, text
 
-    def _tokenize_sentences(self):
-        sentences = sent_tokenize(self.text, language=self.language)
-
-        # Where you would call NP_Chunks from spacy
-        # print(sentences)
-
-        sentence_words = [word_tokenize(s) for s in sentences]
-        # get sentence end indices
-        sentence_end_chars = []
-        current_char_count = 0
-
-        for s in sentences:
-            current_char_count += len(s) + 1
-            sentence_end_chars.append(current_char_count)
-        return sentences, sentence_words, sentence_end_chars
-
-    def _process_char_indices_to_words(self):
-        entity_indices =  [(self.nodes[i]['@id'], self.nodes[i+1]['@id'])
-                            for i in range(0, len(self.nodes)-1, 2)]
-        return entity_indices, [self.text[int(i)-1:int(j)-1].strip() for i,j in entity_indices]
-
-    def _char_idxs_to_sentence_idx(self, entity_indices, sentence_end_chars):
-        sl_wx = {}
-        for i,j in entity_indices:
-            word = self.text[int(i)-1:int(j)-1]
-            for idx, sentence_end_idx in enumerate(sorted(sentence_end_chars)):
-                if int(j) <= sentence_end_idx:
-                    sl_wx[(i,j)] = idx
-                    break
-            else:
-                # todo fix
-                sl_wx[(i,j)] = idx
-        return sl_wx
 
     def _tag_bio(self):
         annos, nodes, text = self.annotations, self.nodes, self.text
@@ -115,75 +83,110 @@ class GateBIOParser(object):
         else:
             annos = { (annos['@StartNode'], annos['@EndNode']): annos['@Type'] }
 
-        entity_indices, ws = self._process_char_indices_to_words()
+        entity_indices = annos.keys()
 
-        sentences, sentence_words, sentence_end_chars = self._tokenize_sentences()
-        sl_wx = self._char_idxs_to_sentence_idx(entity_indices, sentence_end_chars)
+        def create_custom_tokenizer(nlp):
+            custom_prefixes = ['/', '\->']
+            all_prefixes_re = spacy.util.compile_prefix_regex(tuple(list(nlp.Defaults.prefixes) + custom_prefixes))
 
+            custom_infixes = ['\+', '\(', '\&', '\.', '\,', '\)', '\?', '\->']
+            infix_re = spacy.util.compile_infix_regex(tuple(list(nlp.Defaults.infixes) + custom_infixes))
 
-        target_word_per_sentence = defaultdict(list)
-        for (char_start,char_end), sent_idx in sl_wx.items():
-            target_word_per_sentence[sent_idx].append((char_start, char_end))
+            suffix_re = spacy.util.compile_suffix_regex(nlp.Defaults.suffixes)
 
-        sentence_to_ws = defaultdict(list)
-        for i,j in entity_indices:
-            sentence_to_ws[sl_wx[(i,j)]].append(text[int(i)-1:int(j)-1].strip())
-
-        sentence_labels = {}
-        for sentence_idx, word_indices in target_word_per_sentence.items():
-            labels = []
-            for target_word in sentence_to_ws[sentence_idx]:
-                if ' ' in target_word:
-                    tgts = target_word.split(' ')
-                    span = len(tgts)
-                    # for through each n-len sequence
-                    for i in range(len(sentence_words[sentence_idx])):
-                        candidate = ' '.join(sentence_words[sentence_idx][i:i+span])
-                        if candidate == target_word:
-                            labels.append(((i, i+span), annos[entity_indices[ws.index(candidate)]]))
-
-                else:
-                    for idx, word in enumerate(sentence_words[sentence_idx]):
-                            if word == target_word:
-                                labels.append((idx, annos[entity_indices[ws.index(word)]]))
-
-            sentence_labels[sentence_idx] = labels
+            return Tokenizer(nlp.vocab, nlp.Defaults.tokenizer_exceptions,
+                             prefix_search = all_prefixes_re.search,
+                             infix_finditer = infix_re.finditer, suffix_search = suffix_re.search,
+                             token_match=None)
 
 
+        nlp.tokenizer = create_custom_tokenizer(nlp)
 
-        outputs = []
-        for sent_idx, labels in sentence_labels.items():
-            tokens = sentence_words[sent_idx]
-            annotations = ['O'] * len(tokens)
-            for (word_idx, label) in labels:
-                if label == 'UserIDWindows':
-                    label = 'UserIDGeneric'
-                elif label in ('LastName', 'FirstName'):
-                    label = 'FullName'
-                elif label in ('Email'):
-                    continue
-                if isinstance(word_idx, tuple):
-                    start, end = word_idx
-                    for i in range(start, end):
-                        if i == start and label not in ('UserIDGeneric', 'Organisation'):
-                            annotations[i] = 'B-' + label
-                        else:
-                            annotations[i] = 'I-' + label
-                else:
-                    # print(sentence_words[sent_idx][word_idx], label)
-                    annotations[word_idx] = 'I-' + label
-            outputs.append({'tokens': tokens, 'labels': annotations})
+        doc = nlp(text, disable=['ner'])
 
-        return outputs
+        tokens, labels = [str(t) for t in list(doc)], ['O'] * len(doc)
+        token_char_starts = [str(doc[i:i+1].start_char) for i in range(len(tokens))]
+        token_char_ends = [str(doc[i:i+1].end_char - 1) for i in range(len(tokens))]
+
+        ws = [self.text[int(i):int(j)].strip() for i,j in entity_indices]
+
+        for entity_index, (start, end) in enumerate(entity_indices):
+            char_start_idx = -1
+
+            if start in token_char_starts:
+                char_start_idx = start
+                adjustment = 0
+            elif str(int(start) - 1) in token_char_starts:
+                char_start_idx = str(int(start) - 1)
+                adjustment = 1
+            elif str(int(start) + 1) in token_char_starts:
+                char_start_idx = str(int(start) + 1)
+                adjustment = 1
+
+
+
+            if char_start_idx == -1:
+                raise ValueError('Char Start not set')
+
+            token_start_idx = token_char_starts.index(char_start_idx)
+            token_end_idx = token_start_idx
+
+
+            while True:
+                try:
+                    if int(end) <= int(token_char_ends[token_end_idx]):
+                        break
+                    token_end_idx += 1
+                except IndexError as e:
+                    if int(end) - 1  <= int(token_char_ends[token_end_idx-1]):
+                        token_end_idx -= 1
+                        break
+                    else:
+                        raise ValueError('LooP BrokE (talk to Noah)')
+
+
+            else:
+                raise ValueError('-- start found but not end -- ')
+
+
+            if (start, end) not in annos:
+                raise ValueError('Parse Error!')
+
+
+            label = annos[(start, end)]
+
+            if label == 'UserIDWindows':
+                label = 'UserIDGeneric'
+            elif label in ('LastName', 'FirstName'):
+                label = 'FullName'
+            elif label in ('Email'):
+                continue
+
+            if token_start_idx < token_end_idx:
+                for i in range(int(token_start_idx), int(token_end_idx)):
+                    if tokens[i] in ',)(':
+                        continue
+                    else:
+                        if tokens[i]:
+                            labels[i] = 'I-' + label
+                if ' ' in ws[entity_index] and label not in ('UserIDGeneric', 'Organisation'):
+                    if int(token_end_idx) - int(token_start_idx) > 1:
+                        if all(labels[i] == 'I-' + label for i in range(int(token_start_idx), int(token_end_idx))):
+                               labels[token_start_idx] = 'B-' + label
+
+            elif token_start_idx > token_end_idx:
+                raise ValueError('Indices are incorrect')
+            else:
+                labels[token_start_idx] = 'I-' + label
+
+        return {'tokens': tokens, 'labels': labels}
+
+
 
     def get_class_counts(self):
-        classes = { tag for label in self.labels for tag in label }
-        counts = ( Counter(label_list) for label_list in self.labels )
-        class_counts = defaultdict(int)
-        for cc in counts:
-            for tag in cc:
-                class_counts[tag] += cc[tag]
-        return class_counts
+        classes = set(self.BIO['labels'])
+        counts = Counter(self.BIO['labels'])
+        return counts
 
 
     def print_class_counts(self):
