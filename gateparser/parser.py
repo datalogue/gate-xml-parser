@@ -89,7 +89,7 @@ class GateBIOParser(object):
             custom_prefixes = ['/', '\->']
             all_prefixes_re = spacy.util.compile_prefix_regex(tuple(list(nlp.Defaults.prefixes) + custom_prefixes))
 
-            custom_infixes = ['\+', '\(', '\&', '\.', '\,', '\)', '\?', '\->', '\[', '\]']
+            custom_infixes = ['\+', '\(', '\&', '\.', '\,', '\)', '\?', '\->', '\-', '\[', '\]']
             infix_re = spacy.util.compile_infix_regex(tuple(list(nlp.Defaults.infixes) + custom_infixes))
 
             suffix_re = spacy.util.compile_suffix_regex(nlp.Defaults.suffixes)
