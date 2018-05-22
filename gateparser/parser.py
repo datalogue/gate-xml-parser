@@ -8,6 +8,8 @@ import warnings
 
 from json import JSONDecodeError
 
+from googletrans import Translator
+import langid
 
 langid.set_languages(['de','fr','en', 'es'])
 
@@ -24,7 +26,6 @@ class GateBIOParser(object):
         self._encoding = encoding
         self._annotation_spec = annotation_spec
         self.language = language
-        self.translator = Translator()
         self._node_spec = node_spec
         self._text_spec = text_spec
         self.annotations, self.nodes, self.text = self.load_xml()
@@ -66,6 +67,16 @@ class GateBIOParser(object):
 
             if annos is not None and nodes is not None:
                 text = glom(annotations, self._text_spec)['#text']
+                #lang, score = langid.classify(text)
+                #if lang != 'en':
+                #    try:
+                #        text = self.translate(text)
+                #    except JSONDecodeError as e:
+                #        print('Could not translate')
+                #        text = text
+
+
+
             else:
                 warnings.warn(f'No Text to Annotate in {self.filename}')
                 text = None
