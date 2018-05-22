@@ -89,7 +89,7 @@ class GateBIOParser(object):
             custom_prefixes = ['/', '\->']
             all_prefixes_re = spacy.util.compile_prefix_regex(tuple(list(nlp.Defaults.prefixes) + custom_prefixes))
 
-            custom_infixes = ['\+', '\(', '\&', '\.', '\,', '\)', '\?', '\->']
+            custom_infixes = ['\+', '\(', '\&', '\.', '\,', '\)', '\?', '\->', '\[', '\]']
             infix_re = spacy.util.compile_infix_regex(tuple(list(nlp.Defaults.infixes) + custom_infixes))
 
             suffix_re = spacy.util.compile_suffix_regex(nlp.Defaults.suffixes)
@@ -105,6 +105,7 @@ class GateBIOParser(object):
         doc = nlp(text, disable=['ner'])
 
         tokens, labels = [str(t) for t in list(doc)], ['O'] * len(doc)
+        print(tokens)
         token_char_starts = [str(doc[i:i+1].start_char) for i in range(len(tokens))]
         token_char_ends = [str(doc[i:i+1].end_char - 1) for i in range(len(tokens))]
 
@@ -123,8 +124,6 @@ class GateBIOParser(object):
                 char_start_idx = str(int(start) + 1)
                 adjustment = 1
 
-
-
             if char_start_idx == -1:
                 raise ValueError('Char Start not set')
 
@@ -142,7 +141,7 @@ class GateBIOParser(object):
                         token_end_idx -= 1
                         break
                     else:
-                        raise ValueError('LooP BrokE (talk to Noah)')
+                        raise ValueError('LooP BrokE')
 
 
             else:
