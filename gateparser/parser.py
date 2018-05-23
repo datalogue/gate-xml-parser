@@ -45,7 +45,11 @@ class GateBIOParser(object):
                     # Handle if more than one Annotation Set -> in our data, the second one had labels
                     annos = parsed_annos[0]
                     if isinstance(annos, str):
-                        annos = parsed_annos[1]['Annotation']
+                        parsed_annos = parsed_annos[1]
+                        if 'Annotation' in parsed_annos:
+                            annos = parsed_annos['Annotation']
+                        else:
+                            annos = parsed_annos = None
                     else:
                         annos = annos['Annotation']
 
