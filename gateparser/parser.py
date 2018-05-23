@@ -173,11 +173,13 @@ class GateBIOParser(object):
 
             if token_start_idx < token_end_idx:
                 for i in range(int(token_start_idx), int(token_end_idx)):
-                    if tokens[i] in ',)(':
-                        continue
-                    else:
-                        if tokens[i]:
-                            labels[i] = 'I-' + label
+                    # if tokens[i] in ',)(' and label != 'TelNumber:
+                    #     continue
+                    # else:
+                    if tokens[i]:
+                        labels[i] = 'I-' + label
+
+                # B-scheme
                 if ' ' in ws[entity_index] and label not in ('UserIDGeneric', 'Organisation'):
                     if int(token_end_idx) - int(token_start_idx) > 1:
                         if all(labels[i] == 'I-' + label for i in range(int(token_start_idx), int(token_end_idx))):
