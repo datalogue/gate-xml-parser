@@ -6,6 +6,7 @@ from xmltodict import parse
 import spacy
 from glom import glom
 import warnings
+from pprint import pprint
 
 from json import JSONDecodeError
 from spacy.tokenizer import Tokenizer
@@ -41,7 +42,13 @@ class GateBIOParser(object):
 
             if parsed_annos is not None:
                 if isinstance(parsed_annos, list):
-                    annos = parsed_annos[0]['Annotation']
+                    # Handle if more than one Annotation Set -> in our data, the second one had labels
+                    annos = parsed_annos[0]
+                    if isinstance(annos, str):
+                        annos = parsed_annos[1]['Annotation']
+                    else:
+                        annos = annos['Annotation']
+
                 elif isinstance(parsed_annos, str) and not bool(parsed_annos.strip()):
                     annos = parsed_annos = None
                 else:
@@ -157,7 +164,7 @@ class GateBIOParser(object):
                 label = 'UserIDGeneric'
             elif label in ('LastName', 'FirstName'):
                 label = 'FullName'
-            elif label in ('Email'):
+            elif label in ('Email', 'JobTitle'):
                 continue
 
             if token_start_idx < token_end_idx:
