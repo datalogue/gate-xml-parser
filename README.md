@@ -15,13 +15,8 @@ parsed_xml = GateBIOParser('example-data/example-gate-export.xml', encoding='win
                                                         text_spec='GateDocument.TextWithNodes')
 BIO = parsed_xml.BIO
 ```
-BIO is a dictionary matching inpuit tokens to their labels
+BIO is a dictionary matching input tokens to their labels
 
-i.e.
-```python
-{'labels': ['O',  'O',         'O',         'B-FullName',  'I-FullName',  'O',  'I-UserIDWindows',  'O',  'O',    'O'],
- 'tokens': ['*',  '11.11.2011','01:54:01',  'Kimb',         'Helper',     '(',  'HELPER',           ')',  'Tel',  '.']}
-``` 
 ### Sanity Checking Class Counts
 ```python 
 parsed_xml.print_class_counts()
